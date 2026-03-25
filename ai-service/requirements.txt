@@ -8,3 +8,5 @@ python-dotenv
 firebase-admin
 python-multipart
 requests
+pymupdf
+opencv-python-headless
