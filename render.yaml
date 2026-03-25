@@ -38,7 +38,7 @@ services:
         key: AI_SERVICE_HOST
 
   # 3. Frontend Client (Static Site)
-  - type: static
+  - type: web
     name: rolling-arrays-client
     env: static
     buildCommand: npm install && npm run build
