@@ -21,7 +21,10 @@ def get_ocr_engine():
                 _ocr_engine = PaddleOCR(
                     use_angle_cls=True, 
                     lang="en",
-                    ocr_version="PP-OCRv3"
+                    ocr_version="PP-OCRv3",
+                    enable_mkldnn=False,   # Disable mkldnn to avoid PIR/oneDNN errors on some CPUs
+                    rec_batch_num=1,       # Lower batch for memory stability
+                    cpu_threads=1          # Ensure single-thread consistency
                 )
     return _ocr_engine
 
