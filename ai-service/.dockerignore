@@ -1,10 +1,12 @@
 venv/
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
 *.pyd
 .env
 .git/
 temp_*
 proc_*
-test_4k.png
+*.png
+*.jpg
+*.pdf
