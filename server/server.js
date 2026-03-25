@@ -94,6 +94,24 @@ app.post('/trigger', async (req, res) => {
             fileUrl
         }).then(response => {
             console.log(`[Server] ✅ Python service accepted doc ${docId}:`, response.data);
+
+            // SECURITY TIMEOUT: If AI Service crashes (OOM), it won't ever update Firestore.
+            // We set a 3-minute safety net to auto-fail it.
+            setTimeout(async () => {
+                try {
+                    const docSnap = await db.collection('documents').doc(docId).get();
+                    if (docSnap.exists && docSnap.data().status === 'processing') {
+                        console.log(`[Server] ⏳ TIMEOUT for doc ${docId}. Marking as failed.`);
+                        await db.collection('documents').doc(docId).update({
+                            status: 'failed',
+                            error: 'AI Analysis timed out. (This usually happens if the server runs out of memory on Render Free Tier).'
+                        });
+                    }
+                } catch (timeoutErr) {
+                    console.error(`[Server] Error in timeout logic:`, timeoutErr);
+                }
+            }, 300000); // 5 minutes
+
         }).catch(err => {
             console.error(`[Server] ❌ Python service error for doc ${docId}:`, err.message);
             if (err.response) {
