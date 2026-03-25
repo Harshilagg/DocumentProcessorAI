@@ -15,6 +15,9 @@ WORKDIR /app
 COPY ai-service/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Pre-download PaddleOCR models to avoid runtime download timeouts/OOM
+RUN python3 -c "from paddleocr import PaddleOCR; PaddleOCR(use_angle_cls=True, lang='en', ocr_version='PP-OCRv3')"
+
 # Copy application code
 COPY ai-service/ .
 
