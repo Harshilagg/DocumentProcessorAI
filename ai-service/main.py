@@ -32,6 +32,11 @@ class ProcessRequest(BaseModel):
     docId: str
     fileUrl: str
 
+@app.get("/")
+async def root():
+    """Root endpoint for Render health check."""
+    return {"status": "active", "service": "DocuAI Intelligence"}
+
 @app.get("/health")
 async def health_check():
     """Service self-monitoring endpoint."""
@@ -106,5 +111,6 @@ async def process_document(request: ProcessRequest, background_tasks: Background
 
 if __name__ == "__main__":
     import uvicorn
-    logger.info("DocuAI Intelligence Service Started on port 8000")
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.environ.get("PORT", 8000))
+    logger.info(f"DocuAI Intelligence Service Started on port {port}")
+    uvicorn.run(app, host="0.0.0.0", port=port)
