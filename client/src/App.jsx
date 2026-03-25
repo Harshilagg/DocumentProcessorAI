@@ -3,7 +3,7 @@ import { db } from "./firebase";
 import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
 import axios from "axios";
 
-const API = "http://localhost:5001";
+const API = import.meta.env.VITE_API_URL || "http://localhost:5001";
 
 /* ═══════════════════════════════════════════════════════════════════
    REUSABLE COMPONENTS
