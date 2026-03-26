@@ -10,13 +10,44 @@ DocuAI is a powerful, multi-service application designed to process and analyze 
 - **Real-time Monitoring**: Built-in status tracking and real-time updates via Firebase Firestore.
 - **Robust Hosting Support**: Optimized for Docker-based deployment (Render, AWS, etc.) with health checks and safety timeouts.
 
-## 🏗️ Architecture
+## 🏗️ Architecture & Data Flow
 
-The project consists of three main components:
+The system follows a decoupled, event-driven architecture to ensure high performance and reliability.
 
-1.  **Frontend (React/Vite)**: A premium, glassmorphic UI for uploading and viewing document analysis.
-2.  **Backend (Node.js/Express)**: Orchestrates file uploads to AWS S3 and manages document status in Firebase.
-3.  **AI Service (Python/FastAPI)**: The intelligence core using **PaddleOCR** for text extraction and **Groq LLM** for semantic analysis.
+### System Overview
+```mermaid
+graph TD
+    A[Frontend: React/Vite] -->|POST /upload| B[Backend: Node.js]
+    B -->|Save File| C[(AWS S3)]
+    B -->|POST /trigger| D[AI Service: FastAPI]
+    D -->|Download| C
+    D -->|Hybrid Extraction| E{PDF or Image?}
+    E -->|Digital PDF| F[PyMuPDF: Fast Text]
+    E -->|Scanned PDFs/Image| G[PaddleOCR: v3 Engine]
+    F --> H[Merge Text]
+    G --> H
+    H --> I[Groq: LLaMA3 70B]
+    I -->|JSON| J[PII & Result Assembly]
+    J -->|Update| K[(Firebase Firestore)]
+    K -.->|Real-time| A
+```
+
+### How it Works (The Hybrid Pipeline)
+
+1.  **Ingestion & Storage**: Files are uploaded through the React frontend to the Node.js backend, which securely stores them in an **AWS S3** bucket and creates a "Processing" record in **Firestore**.
+2.  **Smart Routing**: The AI Service identifies the file type:
+    *   **Direct Path**: For digital PDFs, it uses `PyMuPDF` to extract the text layer instantly.
+    *   **OCR Path**: For images and scanned PDFs, it triggers the **PaddleOCR** engine (optimized for CPU) to perform a two-pass scan (1000px and 1400px retry) to ensure maximum accuracy for small identity text.
+3.  **Semantic Analysis (LLM)**: The raw text is sent to the **Groq Cloud API (LLaMA 3.3 70B)** with a custom prompt. The LLM identifies the document type and extracts structured entities (Names, DOB, ID Numbers) into a strict JSON format.
+4.  **Privacy Guard**: A regex-based PII service scans the text to identify sensitive patterns independently of the LLM.
+5.  **State Sync**: The final intelligence package is written back to Firestore. The React UI, listening via `onSnapshot`, updates instantly to show the results to the user.
+
+## 🛡️ Health & Monitoring
+
+The project includes specialized logic for hosting on resource-constrained environments (like Render Free Tier):
+- **Health Checks**: A dedicated `/` and `/health` route for zero-downtime deployment monitoring.
+- **Safety Timeouts**: A 5-minute backend listener that auto-fails stalled processes if the AI service crashes due to memory limits (OOM).
+- **Docker Optimizations**: Models are pre-baked into the image to reduce startup memory spikes.
 
 ## 🛠️ Tech Stack
 
