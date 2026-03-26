@@ -26,21 +26,31 @@ To solve "Access Denied" errors while keeping your AWS S3 bucket private, the sy
 
 ---
 
-## 🚀 Key Features
+## 🏗️ How it Works (The Hybrid Pipeline)
 
--   **Hybrid Extraction Pipeline**: Automatically switches between `PyMuPDF` (for digital text) and `PaddleOCR` (for scanned images).
--   **AI Intelligence**: Uses **Groq (LLaMA 3.3 70B)** to extract structured JSON data from unstructured document layouts.
--   **PII Detection**: Proactive identification of sensitive personal information.
--   **Live Sync**: Real-time status tracking via Firebase Firestore.
--   **Startup Stability**: The AI service uses a "Lazy Loading" imports strategy to pass cloud health checks instantly.
+The system follows a decoupled architecture using these core logic segments:
+
+1.  **Ingestion & Storage**: Files are uploaded through the React frontend to the Node.js backend. The backend securely stores them in an **AWS S3** bucket and creates a "Processing" record in **Firestore**.
+2.  **Smart Routing (OCR vs Text)**: The AI Service identifies if the file is a digital PDF or a scanned image. 
+    *   **Digital PDFs**: Direct text extraction using `PyMuPDF`.
+    *   **Scanned Documents**: High-precision scanning using the **PaddleOCR** engine (optimized for 1100px base resolution).
+3.  **Semantic Analysis (LLM)**: Extracted text is sent to the **Groq Cloud API (LLaMA 3.3 70B)**. The AI identifies the document type and extracts structured entities (Names, DOB, ID Numbers) into a strict JSON format.
+4.  **Privacy Guard**: A regex-based PII service independently scans for sensitive patterns (Emails, Phones, SSNs).
+5.  **State Sync**: Results are updated in Firestore, and the React UI updates instantly.
 
 ---
 
-## 🏗️ Architecture & Data Flow
+## 🚀 Key Features
 
-The system follows a decoupled, event-driven architecture to ensure high performance and reliability.
+-   **Hybrid Pipeline**: Seamlessly handles both digital and scanned files.
+-   **PII Detection**: Built-in privacy scanning.
+-   **Live Monitoring**: Instant updates via Firebase `onSnapshot`.
+-   **Startup Stability**: Uses "Lazy Loading" to ensure $100\%$ uptime during cloud health checks.
 
-### System Overview
+---
+
+## 🏗️ Data Flow Overview (Mermaid Diagram)
+
 ```mermaid
 graph TD
     A[Frontend: React/Vite] -->|POST /upload| B[Backend: Node.js]
@@ -65,58 +75,99 @@ graph TD
     end
 ```
 
-### How it Works (The Hybrid Pipeline)
+---
 
-1.  **Ingestion & Storage**: Files are uploaded through the React frontend to the Node.js backend, which securely stores them in an **AWS S3** bucket and creates a "Processing" record in **Firestore**.
-2.  **Smart Routing**: The AI Service identifies the file type:
-    *   **Direct Path**: For digital PDFs, it uses `PyMuPDF` to extract the text layer instantly.
-    *   **OCR Path**: For images and scanned PDFs, it triggers the **PaddleOCR** engine (optimized for CPU) to perform a two-pass scan (1100px and 1400px retry) to ensure maximum accuracy for small identity text.
-3.  **Semantic Analysis (LLM)**: The raw text is sent to the **Groq Cloud API (LLaMA 3.3 70B)** with a custom prompt tailored for identity documents. The LLM identifies the document type and extracts structured entities (Names, DOB, ID Numbers) into a strict JSON format.
-4.  **Privacy Guard**: A regex-based PII service scans the text to identify sensitive patterns independently of the LLM.
-5.  **State Sync**: The final intelligence package is written back to Firestore. The React UI, listening via `onSnapshot`, updates instantly to show the results to the user.
+## 💻 Local Setup & Installation
+
+To run the full suite locally, you need three terminal windows open.
+
+### Prerequisites
+- **Node.js**: v16 or higher (v18+ recommended)
+- **Python**: 3.10 or higher
+- **AWS**: Access keys for an S3 bucket with private settings.
+- **Firebase Account**: Project ID and service account credentials.
+
+### 1. Clone & Install
+```bash
+git clone https://github.com/Harshilagg/DocumentProcessorAI.git
+cd DocumentProcessorAI
+```
+
+### 2. Configure Environment Variables
+You must create a `.env` file in each of the three major directories:
+
+#### `ai-service/.env`
+```env
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+AWS_REGION=...
+AWS_BUCKET_NAME=...
+FIREBASE_PROJECT_ID=...
+FIREBASE_CLIENT_EMAIL=...
+FIREBASE_PRIVATE_KEY="..."
+GROQ_API_KEY=...
+```
+
+#### `server/.env`
+```env
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+AWS_REGION=...
+AWS_BUCKET_NAME=...
+FIREBASE_PROJECT_ID=...
+FIREBASE_CLIENT_EMAIL=...
+FIREBASE_PRIVATE_KEY="..."
+PYTHON_SERVICE_URL=http://localhost:8000
+```
+
+#### `client/.env`
+```env
+VITE_API_URL=http://localhost:5001
+VITE_FIREBASE_API_KEY=...
+VITE_FIREBASE_AUTH_DOMAIN=...
+VITE_FIREBASE_PROJECT_ID=...
+VITE_FIREBASE_STORAGE_BUCKET=...
+VITE_FIREBASE_MESSAGING_SENDER_ID=...
+VITE_FIREBASE_APP_ID=...
+```
+
+---
+
+### 3. Run the System
+
+#### Terminal 1: AI Service (Python)
+```bash
+cd ai-service
+python -m venv venv
+source venv/bin/activate  # Mac/Linux
+# .\venv\Scripts\activate # Windows
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
+```
+
+#### Terminal 2: Backend Backend (Node.js)
+```bash
+cd server
+npm install
+node server.js
+```
+
+#### Terminal 3: React Frontend (Vite)
+```bash
+cd client
+npm install
+npm run dev
+```
+
+The application will be live at `http://localhost:5173`.
 
 ---
 
 ## 🛡️ Health & Monitoring
 
--   **Health Checks**: Dedicated `/` and `/health` routes for zero-downtime deployment monitoring on Render and Hugging Face.
--   **Safety Timeouts**: A 5-minute backend listener that auto-fails stalled processes if the AI service crashes due to memory limits (OOM).
--   **"Lazy Import" Fix**: Crucial for Hugging Face deployment stability; ensures the web server responds to mandatory health checks in <1s.
--   **Docker Optimizations**: Models are pre-baked into the image to reduce startup memory spikes and ensure runtime speed.
-
----
-
-## 🛠️ Tech Stack Details
-
-### AI Service (Python)
-- **PaddleOCR**: High-precision text recognition engine.
-- **FastAPI**: Non-blocking asynchronous web framework.
-- **PyMuPDF**: Ultra-fast digital extraction.
-
-### Backend Server (Node.js)
-- **Firebase Admin SDK**: Server-side document state management.
-- **AWS SDK v3**: Using `@aws-sdk/s3-request-presigner` for temporary access tokens.
-
-### Frontend (React)
-- **Vite**: Modern frontend tooling.
-- **Tailwind CSS**: Utility-first CSS framework for custom UI.
-- **Framer-style Animations**: Custom CSS animations for modals and skeleton loaders.
-
----
-
-## 💻 Local Setup
-Each service requires its own configuration. See individual directories for details.
-- [AI Service Setup](./ai-service/README.md)
-- [Backend Setup](./server/README.md)
-- [Client Setup](./client/README.md)
-
-### Environment Variables
-| Service | Required Keys |
-| :--- | :--- |
-| **All** | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_BUCKET_NAME` |
-| **Backend/AI** | `FIREBASE_PROJECT_ID`, `FIREBASE_PRIVATE_KEY`, `FIREBASE_CLIENT_EMAIL` |
-| **AI Only** | `GROQ_API_KEY` |
-| **Backend Only** | `PYTHON_SERVICE_URL` (Points to Hugging Face URL) |
+-   **Safety Watchdog**: A 5-minute backend listener auto-fails stalled documents if an OOM crash occurs on low-tier cloud hardware.
+-   **Model Baking**: AI models are pre-downloaded in the Dockerfile for near-instant processing once running.
+-   **Unbuffered Logging**: Raw output streams configured to bypass cloud log-buffering delays.
 
 ---
 
