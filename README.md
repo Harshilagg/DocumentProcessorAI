@@ -4,6 +4,18 @@ DocuAI is a professional-grade, multi-service application designed to process id
 
 ---
 
+## 🔗 Live Deployment Links
+
+Click the links below to access the production environments of the decentralized services:
+
+| Service | Live URL | Description |
+| :--- | :--- | :--- |
+| **Frontend UI** | [documentprocessorai-2.onrender.com](https://documentprocessorai-2.onrender.com) | The primary user interface for uploading and viewing documents. |
+| **Backend API** | [documentprocessorai-1.onrender.com](https://documentprocessorai-1.onrender.com) | Orchestrates Firebase metadata, AWS S3 storage, and secure signatures. |
+| **AI Service** | [aggarwalharshil02-ai-processor.hf.space](https://aggarwalharshil02-ai-processor.hf.space) | High-performance AI extraction & OCR engine on Hugging Face. |
+
+---
+
 ##  Deployment Architecture (Three-Tier Hosting)
 
 The application is deployed across multiple specialized platforms to ensure maximum performance and stability:
