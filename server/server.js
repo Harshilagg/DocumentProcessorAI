@@ -2,7 +2,8 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
-const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const { initializeApp, cert } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const axios = require('axios');
@@ -123,6 +124,34 @@ app.post('/trigger', async (req, res) => {
         res.json({ message: 'Processing triggered' });
     } catch (error) {
         console.error('Trigger error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// GET /view/:docId - Generate a presigned URL for secure viewing
+app.get('/documents/:docId/view', async (req, res) => {
+    const { docId } = req.params;
+    try {
+        const docSnap = await db.collection('documents').doc(docId).get();
+        if (!docSnap.exists) {
+            return res.status(404).json({ error: 'Document not found' });
+        }
+
+        const data = docSnap.data();
+        const fileUrl = data.fileUrl;
+
+        const urlParts = new URL(fileUrl);
+        const key = urlParts.pathname.substring(1);
+
+        const command = new GetObjectCommand({
+            Bucket: process.env.AWS_BUCKET_NAME,
+            Key: key,
+        });
+
+        const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 2400 });
+        res.json({ presignedUrl, fileName: data.fileName });
+    } catch (error) {
+        console.error('Presigned URL error:', error);
         res.status(500).json({ error: error.message });
     }
 });

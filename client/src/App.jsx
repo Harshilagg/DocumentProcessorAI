@@ -70,6 +70,9 @@ export default function App() {
   const [uploading, setUpload] = useState(false);
   const [activeId, setActiveId] = useState(null);
   const [drag, setDrag] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState(null);
+  const [presignedUrl, setPresignedUrl] = useState(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
 
   // Firestore real-time
   useEffect(() => {
@@ -91,6 +94,23 @@ export default function App() {
     } catch { alert("Upload failed"); }
     finally { setUpload(false); }
   }, [files]);
+
+  // Fetch Presigned URL and open modal
+  const openPreview = async (doc) => {
+    setPreviewDoc(doc);
+    setLoadingPreview(true);
+    setPresignedUrl(null);
+    try {
+      const { data } = await axios.get(`${API}/documents/${doc.id}/view`);
+      setPresignedUrl(data.presignedUrl);
+    } catch (err) {
+      console.error("Failed to get preview:", err);
+      alert("Could not load document preview");
+      setPreviewDoc(null);
+    } finally {
+      setLoadingPreview(false);
+    }
+  };
 
   const active = docs.find((d) => d.id === activeId);
   const counts = {
@@ -407,15 +427,13 @@ export default function App() {
                   </PanelSection>
 
                   {/* Open file link */}
-                  <a
-                    href={active.fileUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 transition-colors"
+                  <button
+                    onClick={() => openPreview(active)}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 transition-colors"
                   >
                     View Original File
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                  </a>
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                  </button>
                 </>
 
               ) : active.status === "processing" ? (
@@ -472,6 +490,64 @@ export default function App() {
           </div>
         )}
       </aside>
+
+      {/* ════════════ DOCUMENT PREVIEW MODAL ════════════ */}
+      {previewDoc && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8 animate-in fade-in duration-300"
+          style={{ backgroundColor: "rgba(15, 23, 42, 0.85)", backdropFilter: "blur(8px)" }}
+        >
+          <div
+            className="relative w-full max-w-5xl h-full flex flex-col bg-white rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-white/80 backdrop-blur-md sticky top-0 z-10">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center">
+                  <span className="text-lg">📄</span>
+                </div>
+                <h3 className="font-bold text-slate-800 truncate max-w-md">{previewDoc.fileName}</h3>
+              </div>
+              <button
+                onClick={() => setPreviewDoc(null)}
+                className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-all active:scale-95"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-auto bg-slate-100/50 p-4 sm:p-8 flex items-center justify-center custom-scroll">
+              {loadingPreview ? (
+                <div className="flex flex-col items-center gap-4 py-20">
+                  <div className="w-12 h-12 border-[4px] border-slate-200 border-t-indigo-600 rounded-full" style={{ animation: "spin 0.8s linear infinite" }} />
+                  <p className="text-sm font-bold text-slate-500">Generating secure link...</p>
+                </div>
+              ) : presignedUrl ? (
+                <div className="relative shadow-2xl rounded-lg overflow-hidden border border-slate-200 bg-white">
+                  <img
+                    src={presignedUrl}
+                    alt={previewDoc.fileName}
+                    className="max-w-full h-auto block select-none"
+                    onContextMenu={(e) => e.preventDefault()}
+                  />
+                </div>
+              ) : (
+                <p className="text-slate-400 font-medium italic">Document content unavailable.</p>
+              )}
+            </div>
+
+            {/* Modal Footer (Optional status) */}
+            <div className="px-6 py-3 border-t border-slate-100 bg-slate-50/50 flex items-center justify-center">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Secure Pre-signed View — Expires in 15m</p>
+            </div>
+          </div>
+
+          {/* Background Close Action */}
+          <div className="absolute inset-0 -z-10" onClick={() => setPreviewDoc(null)} />
+        </div>
+      )}
 
     </div>
   );
