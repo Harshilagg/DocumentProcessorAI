@@ -1,10 +1,10 @@
-# DocuAI - Intelligent Document Processor 🚀
+# DocuAI - Intelligent Document Processor 
 
 DocuAI is a professional-grade, multi-service application designed to process identity documents (Passports, ID cards) using a hybrid AI extraction pipeline. It is optimized for high memory-usage tasks like OCR and provides a secure, elegant user experience for document viewing.
 
 ---
 
-## 🏗️ Deployment Architecture (Three-Tier Hosting)
+##  Deployment Architecture (Three-Tier Hosting)
 
 The application is deployed across multiple specialized platforms to ensure maximum performance and stability:
 
@@ -16,7 +16,7 @@ The application is deployed across multiple specialized platforms to ensure maxi
 
 ---
 
-## 🛡️ Secure Document Viewing (S3 Integration)
+##  Secure Document Viewing (S3 Integration)
 
 To solve "Access Denied" errors while keeping your AWS S3 bucket private, the system uses **Pre-signed URLs**:
 
@@ -26,7 +26,7 @@ To solve "Access Denied" errors while keeping your AWS S3 bucket private, the sy
 
 ---
 
-## 🏗️ How it Works (The Hybrid Pipeline)
+##  How it Works (The Hybrid Pipeline)
 
 The system follows a decoupled architecture using these core logic segments:
 
@@ -40,7 +40,7 @@ The system follows a decoupled architecture using these core logic segments:
 
 ---
 
-## 🚀 Key Features
+##  Key Features
 
 -   **Hybrid Pipeline**: Seamlessly handles both digital and scanned files.
 -   **PII Detection**: Built-in privacy scanning.
@@ -49,7 +49,7 @@ The system follows a decoupled architecture using these core logic segments:
 
 ---
 
-## 🏗️ Data Flow Overview (Mermaid Diagram)
+##  Data Flow Overview (Mermaid Diagram)
 
 ```mermaid
 graph TD
@@ -77,7 +77,7 @@ graph TD
 
 ---
 
-## 💻 Local Setup & Installation
+##  Local Setup & Installation
 
 To run the full suite locally, you need three terminal windows open.
 
@@ -163,7 +163,7 @@ The application will be live at `http://localhost:5173`.
 
 ---
 
-## 🛡️ Health & Monitoring
+##  Health & Monitoring
 
 -   **Safety Watchdog**: A 5-minute backend listener auto-fails stalled documents if an OOM crash occurs on low-tier cloud hardware.
 -   **Model Baking**: AI models are pre-downloaded in the Dockerfile for near-instant processing once running.
@@ -171,5 +171,3 @@ The application will be live at `http://localhost:5173`.
 
 ---
 
-## 📝 License
-This project is for educational/assignment purposes.
