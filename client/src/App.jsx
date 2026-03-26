@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { db } from "./firebase";
-import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
+import { db, auth } from "./firebase";
+import { collection, query, orderBy, onSnapshot, where } from "firebase/firestore";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 import axios from "axios";
+import AuthView from "./components/AuthView";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5001";
 
@@ -65,6 +67,10 @@ const PiiChip = ({ text }) => (
    ═══════════════════════════════════════════════════════════════════ */
 
 export default function App() {
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authMode, setAuthMode] = useState("login");
+
   const [files, setFiles] = useState([]);
   const [docs, setDocs] = useState([]);
   const [uploading, setUpload] = useState(false);
@@ -74,26 +80,57 @@ export default function App() {
   const [presignedUrl, setPresignedUrl] = useState(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
 
-  // Firestore real-time
+  // Monitor Auth State
   useEffect(() => {
-    const q = query(collection(db, "documents"), orderBy("createdAt", "desc"));
-    return onSnapshot(q, (s) => setDocs(s.docs.map((d) => ({ id: d.id, ...d.data() }))));
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setAuthLoading(false);
+    });
+    return unsub;
   }, []);
 
-  // Upload (no backend changes)
+  // Firestore real-time (Only if logged in)
+  useEffect(() => {
+    if (!user) return;
+    const q = query(
+      collection(db, "documents"),
+      where("uid", "==", user.uid),
+      orderBy("createdAt", "desc")
+    );
+    return onSnapshot(q, (s) => setDocs(s.docs.map((d) => ({ id: d.id, ...d.data() }))));
+  }, [user]);
+
+  // Logout
+  const handleLogout = () => signOut(auth);
+
+  // Upload + auto-trigger processing
   const upload = useCallback(async () => {
-    if (!files.length) return;
+    if (!files.length || uploading || !user) return;
     setUpload(true);
-    const fd = new FormData();
-    files.forEach((f) => fd.append("files", f));
     try {
-      const { data } = await axios.post(`${API}/upload`, fd);
-      for (const d of data.documents)
-        axios.post(`${API}/trigger`, { docId: d.id, fileUrl: d.fileUrl });
+      const idToken = await user.getIdToken();
+      const authHeaders = { Authorization: `Bearer ${idToken}` };
+
+      for (const file of files) {
+        const fd = new FormData();
+        fd.append("document", file);
+        const res = await axios.post(`${API}/upload`, fd, { headers: authHeaders });
+
+        // Auto-trigger AI processing for each uploaded doc
+        const doc = res.data.documents?.[0];
+        if (doc) {
+          axios.post(`${API}/trigger`, { docId: doc.id, fileUrl: doc.fileUrl }, { headers: authHeaders })
+            .catch(err => console.error("Trigger error:", err));
+        }
+      }
       setFiles([]);
-    } catch { alert("Upload failed"); }
-    finally { setUpload(false); }
-  }, [files]);
+    } catch (e) {
+      console.error("Upload error:", e);
+      alert("Extraction gateway failure.");
+    } finally {
+      setUpload(false);
+    }
+  }, [files, uploading, user]);
 
   // Fetch Presigned URL and open modal
   const openPreview = async (doc) => {
@@ -101,12 +138,15 @@ export default function App() {
     setLoadingPreview(true);
     setPresignedUrl(null);
     try {
-      const { data } = await axios.get(`${API}/documents/${doc.id}/view`);
-      setPresignedUrl(data.presignedUrl);
-    } catch (err) {
-      console.error("Failed to get preview:", err);
-      alert("Could not load document preview");
-      setPreviewDoc(null);
+      const idToken = await user.getIdToken();
+      const res = await axios.get(`${API}/documents/${doc.id}/view`, {
+        headers: { Authorization: `Bearer ${idToken}` }
+      });
+      setPresignedUrl(res.data.url);
+    } catch (e) {
+      console.error("Preview fail:", e);
+      alert("Artifact access denied.");
+      setPreviewDoc(null); // Keep this line to clear previewDoc on error
     } finally {
       setLoadingPreview(false);
     }
@@ -120,11 +160,21 @@ export default function App() {
     failed: docs.filter((d) => d.status === "failed").length,
   };
 
+  // 1. Initial Loading Screen
+  if (authLoading) return (
+    <div className="h-screen flex items-center justify-center bg-slate-50">
+      <div className="w-10 h-10 border-4 border-slate-200 border-t-indigo-600 rounded-full animate-spin" />
+    </div>
+  );
+
+  // 2. Auth Routing
+  if (!user) return <AuthView mode={authMode} setMode={setAuthMode} />;
+
   /* ═══════════════════════════════════════════════════════════════
-     RENDER — Three-panel layout
+     RENDER — Three-panel layout (Authenticated)
      ═══════════════════════════════════════════════════════════════ */
   return (
-    <div className="h-screen flex bg-slate-50">
+    <div className="h-screen flex bg-slate-50 overflow-hidden">
 
       {/* ════════════ LEFT SIDEBAR ════════════ */}
       <aside className="w-64 shrink-0 bg-white border-r border-slate-200 flex flex-col">
@@ -196,10 +246,18 @@ export default function App() {
           </div>
         </div>
 
-        {/* Bottom status */}
-        <div className="px-5 py-3 border-t border-slate-100 flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 pulse-dot" />
-          <span className="text-[11px] text-slate-400 font-medium">System Online</span>
+        {/* Bottom status & Logout */}
+        <div className="px-5 py-3 border-t border-slate-100 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 pulse-dot" />
+            <span className="text-[11px] text-slate-400 font-medium">System Online</span>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="px-3 py-1.5 rounded-lg text-[11px] font-bold text-red-500 bg-red-50 hover:bg-red-100 border border-red-100 transition-all uppercase tracking-wider"
+          >
+            Sign Out
+          </button>
         </div>
       </aside>
 

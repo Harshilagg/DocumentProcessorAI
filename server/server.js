@@ -5,6 +5,7 @@ const multer = require('multer');
 const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const { initializeApp, cert } = require('firebase-admin/app');
+const { getAuth } = require('firebase-admin/auth');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const axios = require('axios');
 const path = require('path');
@@ -37,39 +38,52 @@ const s3Client = new S3Client({
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-// POST /upload - Upload to S3 and create Firestore doc
-app.post('/upload', upload.array('files'), async (req, res) => {
+// ── Auth Middleware ─────────────────────────────────────────────────
+const verifyToken = async (req, res, next) => {
+    const header = req.headers.authorization;
+    if (!header || !header.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Unauthorized — no token provided' });
+    }
     try {
-        const files = req.files;
-        if (!files || files.length === 0) {
-            return res.status(400).json({ error: 'No files uploaded' });
+        const decoded = await getAuth().verifyIdToken(header.split('Bearer ')[1]);
+        req.uid = decoded.uid;
+        next();
+    } catch (err) {
+        console.error('[Auth] Token verification failed:', err.message);
+        return res.status(401).json({ error: 'Unauthorized — invalid token' });
+    }
+};
+
+// POST /upload - Upload to S3 and create Firestore doc
+app.post('/upload', verifyToken, upload.single('document'), async (req, res) => {
+    try {
+        const file = req.file;
+        if (!file) {
+            return res.status(400).json({ error: 'No file uploaded' });
         }
 
-        const uploadPromises = files.map(async (file) => {
-            const fileKey = `uploads/${Date.now()}-${file.originalname}`;
-            const params = {
-                Bucket: process.env.AWS_BUCKET_NAME,
-                Key: fileKey,
-                Body: file.buffer,
-                ContentType: file.mimetype,
-            };
+        const fileKey = `uploads/${Date.now()}-${file.originalname}`;
+        const params = {
+            Bucket: process.env.AWS_BUCKET_NAME,
+            Key: fileKey,
+            Body: file.buffer,
+            ContentType: file.mimetype,
+        };
 
-            await s3Client.send(new PutObjectCommand(params));
-            const fileUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileKey}`;
+        await s3Client.send(new PutObjectCommand(params));
+        const fileUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileKey}`;
 
-            // Create Firestore document
-            const docRef = await db.collection('documents').add({
-                fileUrl,
-                fileName: file.originalname,
-                status: 'uploaded',
-                createdAt: FieldValue.serverTimestamp(),
-            });
-
-            return { id: docRef.id, fileUrl, fileName: file.originalname };
+        // Create Firestore document tagged with owner uid
+        const docRef = await db.collection('documents').add({
+            fileUrl,
+            fileName: file.originalname,
+            status: 'uploaded',
+            uid: req.uid,
+            createdAt: FieldValue.serverTimestamp(),
         });
 
-        const results = await Promise.all(uploadPromises);
-        res.json({ message: 'Files uploaded successfully', documents: results });
+        const result = { id: docRef.id, fileUrl, fileName: file.originalname };
+        res.json({ message: 'File uploaded successfully', documents: [result] });
     } catch (error) {
         console.error('Upload error:', error);
         res.status(500).json({ error: error.message });
@@ -77,13 +91,19 @@ app.post('/upload', upload.array('files'), async (req, res) => {
 });
 
 // POST /trigger - Call Python service to process document
-app.post('/trigger', async (req, res) => {
+app.post('/trigger', verifyToken, async (req, res) => {
     const { docId, fileUrl } = req.body;
     if (!docId || !fileUrl) {
         return res.status(400).json({ error: 'docId and fileUrl are required' });
     }
 
     try {
+        // Ownership check
+        const docSnap = await db.collection('documents').doc(docId).get();
+        if (!docSnap.exists || docSnap.data().uid !== req.uid) {
+            return res.status(403).json({ error: 'Forbidden — document does not belong to you' });
+        }
+
         // Update status to processing
         await db.collection('documents').doc(docId).update({ status: 'processing' });
         console.log(`[Server] Triggering Python service for doc: ${docId}`);
@@ -129,19 +149,19 @@ app.post('/trigger', async (req, res) => {
 });
 
 // GET /view/:docId - Generate a presigned URL for secure viewing
-app.get('/documents/:docId/view', async (req, res) => {
+app.get('/documents/:docId/view', verifyToken, async (req, res) => {
     const { docId } = req.params;
     try {
         const docSnap = await db.collection('documents').doc(docId).get();
-        if (!docSnap.exists) {
-            return res.status(404).json({ error: 'Document not found' });
+        if (!docSnap.exists || docSnap.data().uid !== req.uid) {
+            return res.status(403).json({ error: 'Forbidden — document not found or access denied' });
         }
 
         const data = docSnap.data();
         const fileUrl = data.fileUrl;
 
         const urlParts = new URL(fileUrl);
-        const key = urlParts.pathname.substring(1);
+        const key = decodeURIComponent(urlParts.pathname.substring(1));
 
         const command = new GetObjectCommand({
             Bucket: process.env.AWS_BUCKET_NAME,
@@ -150,7 +170,7 @@ app.get('/documents/:docId/view', async (req, res) => {
 
         // Generate URL that expires in 7 days (604,800 seconds)
         const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 604800 });
-        res.json({ presignedUrl, fileName: data.fileName });
+        res.json({ url: presignedUrl, fileName: data.fileName });
     } catch (error) {
         console.error('Presigned URL error:', error);
         res.status(500).json({ error: error.message });
