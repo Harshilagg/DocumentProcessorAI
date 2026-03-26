@@ -1,6 +1,16 @@
 # DocuAI - Intelligent Document Processor 
 
-DocuAI is a professional-grade, multi-service application designed to process identity documents (Passports, ID cards) using a hybrid AI extraction pipeline. It is optimized for high memory-usage tasks like OCR and provides a secure, elegant user experience for document viewing.
+DocuAI is a professional-grade, multi-tenant application designed to process identity documents (Passports, ID cards) using a hybrid AI extraction pipeline. It features a secure authentication layer, isolated user dashboards, and is optimized for high memory-usage tasks like OCR.
+
+---
+
+## 🔐 Authentication & User Isolation
+
+DocuAI uses **Firebase Authentication** and **Firestore Security Rules** to ensure that data is isolated and secure:
+
+*   **Multi-Tenancy**: Every user has their own private dashboard. All uploaded documents are tagged with the user's unique `uid`.
+*   **Zero-Trust Backend**: The Node.js server verifies Firebase ID Tokens on every request using `firebase-admin`. Even if an API endpoint is guessed, data cannot be accessed without a valid, fresh token.
+*   **Ownership Checks**: The system verifies document ownership at the database level before generating viewing links or triggering AI processing.
 
 ---
 
@@ -98,6 +108,7 @@ To run the full suite locally, you need three terminal windows open.
 - **Python**: 3.10 or higher
 - **AWS**: Access keys for an S3 bucket with private settings.
 - **Firebase Account**: Project ID and service account credentials.
+- **Firestore Index**: A composite index is required for the activity log: `uid` (Asc) + `createdAt` (Desc).
 
 ### 1. Clone & Install
 ```bash
