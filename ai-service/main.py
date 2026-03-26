@@ -1,6 +1,10 @@
 import os
+import sys
 
-# CRITICAL: Prevent Mac Threading Deadlocks
+# DEBUG: Instant unbuffered output for Hugging Face logs
+print(">>> [Hugging Face] AI Service Container Initialization Started <<<", flush=True)
+
+# CRITICAL: Prevent Deadlocks
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
@@ -12,19 +16,16 @@ from pydantic import BaseModel
 from logger import logger
 from config import validate_config, Config
 
-# Import Services
-from utils.s3_utils import download_s3_file
-from utils.db_utils import update_document_results, mark_document_failed
-from services.extraction_service import smart_extraction_pipeline
-from services.ai_service import extract_structured_data
-from services.pii_service import scan_pii_patterns
+# Note: Service imports moved inside task function below to prevent startup hang
 
-# Validate Env at startup
+# Global configuration status
+config_error = None
 try:
     validate_config()
+    logger.info("Configuration validated successfully.")
 except EnvironmentError as ee:
-    logger.critical(f"FATAL Startup Error: {ee}")
-    os._exit(1)
+    config_error = str(ee)
+    logger.error(f"Configuration Warning: {config_error}. Service will start but processing may fail.")
 
 app = FastAPI(title="DocuAI Inteligience Service", version="1.0.0")
 
@@ -40,10 +41,22 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Service self-monitoring endpoint."""
-    return {"status": "ok", "service": "docuai", "pipeline": "universal"}
+    return {
+        "status": "ok" if not config_error else "unconfigured",
+        "service": "docuai",
+        "error": config_error,
+        "pipeline": "universal"
+    }
 
 async def docuai_processing_task(doc_id: str, file_url: str):
     """Orchestrates download -> Smart Extraction -> AI -> Firestore."""
+    # LATE IMPORTS to ensure server starts instantly and passes health checks
+    from utils.s3_utils import download_s3_file
+    from utils.db_utils import update_document_results, mark_document_failed
+    from services.extraction_service import smart_extraction_pipeline
+    from services.ai_service import extract_structured_data
+    from services.pii_service import scan_pii_patterns
+    
     import time
     start_time = time.time()
     
@@ -111,6 +124,7 @@ async def process_document(request: ProcessRequest, background_tasks: Background
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.environ.get("PORT", 8000))
-    logger.info(f"DocuAI Intelligence Service Started on port {port}")
+    # Hugging Face usually expects port 7860
+    port = int(os.environ.get("PORT", 7860))
+    logger.info(f"Starting DocuAI Intelligence Service on port {port}...")
     uvicorn.run(app, host="0.0.0.0", port=port)
