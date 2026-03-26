@@ -525,13 +525,23 @@ export default function App() {
                   <p className="text-sm font-bold text-slate-500">Generating secure link...</p>
                 </div>
               ) : presignedUrl ? (
-                <div className="relative shadow-2xl rounded-lg overflow-hidden border border-slate-200 bg-white">
-                  <img
-                    src={presignedUrl}
-                    alt={previewDoc.fileName}
-                    className="max-w-full h-auto block select-none"
-                    onContextMenu={(e) => e.preventDefault()}
-                  />
+                <div className="relative w-full h-full flex items-center justify-center">
+                  {previewDoc.fileName?.toLowerCase().endsWith('.pdf') ? (
+                    <iframe
+                      src={presignedUrl}
+                      className="w-full h-full rounded-xl border border-slate-200 shadow-2xl bg-white"
+                      title={previewDoc.fileName}
+                    />
+                  ) : (
+                    <div className="relative shadow-2xl rounded-lg overflow-hidden border border-slate-200 bg-white">
+                      <img
+                        src={presignedUrl}
+                        alt={previewDoc.fileName}
+                        className="max-w-full h-auto block select-none"
+                        onContextMenu={(e) => e.preventDefault()}
+                      />
+                    </div>
+                  )}
                 </div>
               ) : (
                 <p className="text-slate-400 font-medium italic">Document content unavailable.</p>
@@ -540,7 +550,7 @@ export default function App() {
 
             {/* Modal Footer (Optional status) */}
             <div className="px-6 py-3 border-t border-slate-100 bg-slate-50/50 flex items-center justify-center">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Secure Pre-signed View — Expires in 15m</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Secure Pre-signed View — Expires in 7 Days</p>
             </div>
           </div>
 

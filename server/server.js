@@ -148,7 +148,8 @@ app.get('/documents/:docId/view', async (req, res) => {
             Key: key,
         });
 
-        const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 2400 });
+        // Generate URL that expires in 7 days (604,800 seconds)
+        const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 604800 });
         res.json({ presignedUrl, fileName: data.fileName });
     } catch (error) {
         console.error('Presigned URL error:', error);
