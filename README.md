@@ -33,8 +33,8 @@ The application is deployed across multiple specialized platforms to ensure maxi
 To solve "Access Denied" errors while keeping your AWS S3 bucket private, the system uses **Pre-signed URLs**:
 
 *   **Secure Access**: Instead of making files public, the backend generates a temporary, encrypted link only when you click "View".
-*   **40-Minute Expiration**: For enhanced security and convenience, the generated viewing links are valid for **40 minutes** (`expiresIn: 2400`).
-*   **Elegant In-App Modal**: Documents open in a custom-built, glassmorphic Lightbox overlay. This keeps the user within the app experience instead of redirecting to a raw browser tab.
+*   **7-Day Expiration**: Optimized for recruitment workflows; generated viewing links are valid for **7 days** (`expiresIn: 604800`) when using IAM credentials.
+*   **Elegant In-App Modal (PDF & Image)**: Documents open in a custom-built, glassmorphic Lightbox overlay. Supports high-fidelity rendering for both images (`.jpg`, `.png`) and PDFs.
 
 ---
 
