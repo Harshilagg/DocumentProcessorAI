@@ -4,7 +4,7 @@ DocuAI is a professional-grade, multi-tenant application designed to process ide
 
 ---
 
-## 🔐 Authentication & User Isolation
+##  Authentication & User Isolation
 
 DocuAI uses **Firebase Authentication** and **Firestore Security Rules** to ensure that data is isolated and secure:
 
@@ -14,7 +14,7 @@ DocuAI uses **Firebase Authentication** and **Firestore Security Rules** to ensu
 
 ---
 
-## 🔗 Live Deployment Links
+##  Live Deployment Links
 
 Click the links below to access the production environments of the decentralized services:
 
@@ -26,7 +26,7 @@ Click the links below to access the production environments of the decentralized
 
 ---
 
-## 👩‍💻 Recruiter Verification (Sample Account)
+##  Verification (Sample Account)
 
 To verify the system's full capabilities without creating a new account, you can use the following credentials:
 
