@@ -23,11 +23,11 @@ COPY ai-service/ .
 
 # Environment variables for PaddleOCR/FastAPI
 ENV PYTHONUNBUFFERED=1
-ENV PORT=8000
+ENV PORT=7860
 ENV OMP_NUM_THREADS=1
 
 # Expose port
-EXPOSE 8000
+EXPOSE 7860
 
 # Start command (Render provided $PORT)
 CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
