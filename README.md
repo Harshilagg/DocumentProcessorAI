@@ -26,6 +26,19 @@ Click the links below to access the production environments of the decentralized
 
 ---
 
+## 👩‍💻 Recruiter Verification (Sample Account)
+
+To verify the system's full capabilities without creating a new account, you can use the following credentials:
+
+*   **Email**: `sample@gmail.com`
+*   **Password**: `sampleaccount`
+
+**What to expect in the sample account:**
+*   **Pre-loaded Results**: 4 sample documents (PDFs and Images) already processed with structured extraction results.
+*   **Test Capabilities**: You can click "View" to see the secure presigned URL implementation or upload your own document to see the **Real-time AI Processing** and **PII Detection** in action.
+
+---
+
 ##  Deployment Architecture (Three-Tier Hosting)
 
 The application is deployed across multiple specialized platforms to ensure maximum performance and stability:
